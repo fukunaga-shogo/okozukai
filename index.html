@@ -388,6 +388,19 @@ function flashSubmit() {
   setTimeout(() => { if (btn) btn.textContent = orig; }, 900);
 }
 
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = `
+    position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%);
+    background: rgba(0,0,0,0.8); color: #fff; padding: 10px 20px;
+    border-radius: 999px; font-size: 14px; z-index: 200;
+    pointer-events: none;
+  `;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 1500);
+}
+
 /* ---------- Month ---------- */
 function renderMonth() {
   document.getElementById('header').innerHTML = `
@@ -796,11 +809,13 @@ function openUnifiedEdit({ inc, exp }) {
     const newExpAmt = parseInt(document.getElementById('editExpAmt').value, 10) || 0;
     const newMemo = document.getElementById('editMemo').value.trim();
 
+    document.activeElement && document.activeElement.blur && document.activeElement.blur();
+
     if (newIncAmt <= 0 && newExpAmt <= 0) {
       if (!confirm('金額が両方0です。記録を削除しますか？')) return;
       const ids = [inc, exp].filter(Boolean).map(x => x.id);
       entries = entries.filter(en => !ids.includes(en.id));
-      saveEntries(); close(); render(); return;
+      saveEntries(); close(); render(); showToast('削除しました'); return;
     }
 
     // Determine if we need a pairId (both income and expense will exist)
@@ -840,6 +855,10 @@ function openUnifiedEdit({ inc, exp }) {
     }
 
     saveEntries(); close(); render();
+    const parts = [];
+    if (newIncAmt > 0) parts.push(`収入${fmtNum(newIncAmt)}`);
+    if (newExpAmt > 0) parts.push(`支出${fmtNum(newExpAmt)}`);
+    showToast('✓ 保存: ' + parts.join(' / '));
   });
 
   document.getElementById('editDelete').addEventListener('click', () => {
