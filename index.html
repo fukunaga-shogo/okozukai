@@ -640,18 +640,41 @@ function renderSearch() {
   } else if (results.length === 0) {
     html += `<div class="empty">該当する記録がありません</div>`;
   } else {
+    // Group pairs (only within same date) to match month view
+    const byDate = {};
+    results.forEach(e => { (byDate[e.date] ||= []).push(e); });
+    const sortedDates = Object.keys(byDate).sort((a,b) => b.localeCompare(a));
+    const rows = [];
+    for (const d of sortedDates) {
+      groupPairs(byDate[d]).forEach(r => rows.push({ ...r, date: d }));
+    }
     html += `
       <ul class="group-list">
-        ${results.map(e => `
-          <li data-id="${e.id}">
+        ${rows.map(r => {
+          if (r.single) {
+            const e = r.single;
+            return `<li data-id="${e.id}">
+              <span class="item-label">
+                <div style="font-size:12px;color:var(--muted)">${fmtDateLong(r.date)}</div>
+                <div>${escapeHtml(e.memo || '(メモなし)')}</div>
+              </span>
+              <span class="item-amount ${e.type==='income'?'pos':'neg'}">${e.type==='income'?'':'-'}${fmtNum(e.amount)}</span>
+              <span class="chev">›</span>
+            </li>`;
+          }
+          const { inc, exp } = r.pair;
+          return `<li data-pair="${inc.id}|${exp.id}">
             <span class="item-label">
-              <div style="font-size:12px;color:var(--muted)">${fmtDateLong(e.date)}</div>
-              <div>${escapeHtml(e.memo || '(メモなし)')}</div>
+              <div style="font-size:12px;color:var(--muted)">${fmtDateLong(r.date)}</div>
+              <div>${escapeHtml(inc.memo || '(メモなし)')}</div>
             </span>
-            <span class="item-amount ${e.type==='income'?'pos':'neg'}">${e.type==='income'?'':'-'}${fmtNum(e.amount)}</span>
+            <span class="item-amounts">
+              <span class="pos">+${fmtNum(inc.amount)}</span>
+              <span class="neg">-${fmtNum(exp.amount)}</span>
+            </span>
             <span class="chev">›</span>
-          </li>
-        `).join('')}
+          </li>`;
+        }).join('')}
       </ul>
     `;
   }
