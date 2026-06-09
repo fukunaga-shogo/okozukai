@@ -310,8 +310,14 @@ function renderRecord() {
   document.querySelectorAll('#typeSeg button').forEach(b => {
     b.addEventListener('click', () => { state.inputType = b.dataset.t; render(); });
   });
-  document.getElementById('inputDate').addEventListener('change', e => {
+  const dateEl = document.getElementById('inputDate');
+  dateEl.addEventListener('change', e => {
     state.inputDate = e.target.value; render();
+  });
+  dateEl.addEventListener('click', () => {
+    if (typeof dateEl.showPicker === 'function') {
+      try { dateEl.showPicker(); } catch {}
+    }
   });
   document.getElementById('prevDay').addEventListener('click', () => {
     const d = new Date(state.inputDate); d.setDate(d.getDate() - 1);
