@@ -805,11 +805,11 @@ function openUnifiedEdit({ inc, exp }) {
   document.getElementById('editSave').addEventListener('click', () => {
    try {
     document.activeElement && document.activeElement.blur && document.activeElement.blur();
+    const before = entries.length;
     const d = document.getElementById('editDate').value;
     const newIncAmt = parseInt(document.getElementById('editIncAmt').value, 10) || 0;
     const newExpAmt = parseInt(document.getElementById('editExpAmt').value, 10) || 0;
     const newMemo = document.getElementById('editMemo').value.trim();
-    showToast(`保存試行: 収入${newIncAmt} 支出${newExpAmt}`);
 
     if (newIncAmt <= 0 && newExpAmt <= 0) {
       if (!confirm('金額が両方0です。記録を削除しますか？')) return;
@@ -858,7 +858,7 @@ function openUnifiedEdit({ inc, exp }) {
     const parts = [];
     if (newIncAmt > 0) parts.push(`収入${fmtNum(newIncAmt)}`);
     if (newExpAmt > 0) parts.push(`支出${fmtNum(newExpAmt)}`);
-    showToast('✓ 保存: ' + parts.join(' / '));
+    showToast(`✓ 件数${before}→${entries.length} ` + parts.join(' / '));
    } catch (err) {
     showToast('エラー: ' + (err && err.message || err));
    }
