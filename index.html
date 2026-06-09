@@ -462,21 +462,48 @@ function filterByType(arr, f) {
 function groupPairs(items) {
   const rows = [];
   const seen = new Set();
+  // Pass 1: explicit pairId
   for (const e of items) {
     if (seen.has(e.id)) continue;
     if (e.pairId) {
-      const partner = items.find(o => o.id !== e.id && o.pairId === e.pairId);
+      const partner = items.find(o => o.id !== e.id && !seen.has(o.id) && o.pairId === e.pairId);
       if (partner) {
         const inc = e.type === 'income' ? e : partner;
         const exp = e.type === 'expense' ? e : partner;
-        rows.push({ pair: { inc, exp } });
+        rows.push({ key: e.id, pair: { inc, exp } });
         seen.add(e.id); seen.add(partner.id);
-        continue;
       }
     }
-    rows.push({ single: e });
+  }
+  // Pass 2: match by date + memo (for legacy data)
+  for (const e of items) {
+    if (seen.has(e.id)) continue;
+    const memoKey = (e.memo || '').trim();
+    const partner = items.find(o =>
+      !seen.has(o.id) && o.id !== e.id &&
+      o.type !== e.type &&
+      o.date === e.date &&
+      (o.memo || '').trim() === memoKey
+    );
+    if (partner) {
+      const inc = e.type === 'income' ? e : partner;
+      const exp = e.type === 'expense' ? e : partner;
+      rows.push({ key: e.id, pair: { inc, exp } });
+      seen.add(e.id); seen.add(partner.id);
+    }
+  }
+  // Pass 3: remaining singles, preserve original order
+  for (const e of items) {
+    if (seen.has(e.id)) continue;
+    rows.push({ key: e.id, single: e });
     seen.add(e.id);
   }
+  // Sort by id desc to keep newest first
+  rows.sort((a,b) => {
+    const aid = a.single ? a.single.id : Math.max(a.pair.inc.id, a.pair.exp.id);
+    const bid = b.single ? b.single.id : Math.max(b.pair.inc.id, b.pair.exp.id);
+    return bid - aid;
+  });
   return rows;
 }
 
