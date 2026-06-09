@@ -305,23 +305,23 @@ function renderRecord() {
         </div>
       </div>
 
-      <div class="type-block income-block">
+      <div class="type-block">
         <div class="type-label"><span class="dot pos">●</span> 収入</div>
         <div class="input-block">
           <input type="number" inputmode="numeric" id="incomeAmount" placeholder="収入額" min="1" step="1">
         </div>
-        <div class="input-block">
-          <input type="text" id="incomeMemo" placeholder="内容">
-        </div>
       </div>
 
-      <div class="type-block expense-block">
+      <div class="type-block">
         <div class="type-label"><span class="dot neg">●</span> 支出</div>
         <div class="input-block">
           <input type="number" inputmode="numeric" id="expenseAmount" placeholder="支出額" min="1" step="1">
         </div>
+      </div>
+
+      <div class="type-block">
         <div class="input-block">
-          <input type="text" id="expenseMemo" placeholder="内容">
+          <input type="text" id="sharedMemo" placeholder="内容">
         </div>
       </div>
 
@@ -354,26 +354,25 @@ function submitEntry() {
   if (incAmt <= 0 && expAmt <= 0) {
     alert('収入または支出の金額を入力してください'); return;
   }
-  const incMemo = document.getElementById('incomeMemo').value.trim();
-  const expMemo = document.getElementById('expenseMemo').value.trim();
+  const memo = document.getElementById('sharedMemo').value.trim();
   const baseId = Date.now();
   if (incAmt > 0) {
     entries.push({
       id: baseId + Math.random(),
       type: 'income', date: state.inputDate,
-      amount: Math.abs(incAmt), memo: incMemo
+      amount: Math.abs(incAmt), memo
     });
   }
   if (expAmt > 0) {
     entries.push({
       id: baseId + 0.5 + Math.random(),
       type: 'expense', date: state.inputDate,
-      amount: Math.abs(expAmt), memo: expMemo
+      amount: Math.abs(expAmt), memo
     });
   }
   saveEntries();
   flashSubmit();
-  ['incomeAmount','incomeMemo','expenseAmount','expenseMemo'].forEach(id => {
+  ['incomeAmount','expenseAmount','sharedMemo'].forEach(id => {
     document.getElementById(id).value = '';
   });
 }
