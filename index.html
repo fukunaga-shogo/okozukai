@@ -99,6 +99,17 @@
   .input-block input:focus, .input-block textarea:focus { border-color: var(--accent); }
   .input-block textarea { resize: none; min-height: 48px; }
 
+  .type-block {
+    margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);
+  }
+  .type-label {
+    font-size: 14px; font-weight: 700; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .type-label .dot { font-size: 10px; }
+  .type-label .pos { color: var(--income); }
+  .type-label .neg { color: var(--expense); }
+
   .submit-btn {
     width: 100%; padding: 14px; background: #6e655c; color: #fff; border: 0;
     border-radius: 8px; font-size: 17px; font-weight: 700; cursor: pointer;
@@ -284,10 +295,6 @@ function renderRecord() {
     <div style="min-width:70px"></div>
   `;
   document.getElementById('content').innerHTML = `
-    <div class="segment" id="typeSeg">
-      <button data-t="income" class="${state.inputType==='income'?'active':''}">収入</button>
-      <button data-t="expense" class="${state.inputType==='expense'?'active':''}">支出</button>
-    </div>
     <div class="card">
       <div class="field-row">
         <label>日付</label>
@@ -297,19 +304,31 @@ function renderRecord() {
           <button id="today">今日</button>
         </div>
       </div>
-      <div class="input-block">
-        <input type="number" inputmode="numeric" id="inputAmount" placeholder="${state.inputType==='income'?'収入額':'支出額'}" min="1" step="1">
+
+      <div class="type-block income-block">
+        <div class="type-label"><span class="dot pos">●</span> 収入</div>
+        <div class="input-block">
+          <input type="number" inputmode="numeric" id="incomeAmount" placeholder="収入額" min="1" step="1">
+        </div>
+        <div class="input-block">
+          <input type="text" id="incomeMemo" placeholder="内容">
+        </div>
       </div>
-      <div class="input-block">
-        <input type="text" id="inputMemo" placeholder="内容">
+
+      <div class="type-block expense-block">
+        <div class="type-label"><span class="dot neg">●</span> 支出</div>
+        <div class="input-block">
+          <input type="number" inputmode="numeric" id="expenseAmount" placeholder="支出額" min="1" step="1">
+        </div>
+        <div class="input-block">
+          <input type="text" id="expenseMemo" placeholder="内容">
+        </div>
       </div>
+
       <button class="submit-btn" id="submitBtn">決定</button>
     </div>
   `;
 
-  document.querySelectorAll('#typeSeg button').forEach(b => {
-    b.addEventListener('click', () => { state.inputType = b.dataset.t; render(); });
-  });
   const dateEl = document.getElementById('inputDate');
   dateEl.addEventListener('change', e => {
     state.inputDate = e.target.value; render();
@@ -330,20 +349,33 @@ function renderRecord() {
 }
 
 function submitEntry() {
-  const amt = parseInt(document.getElementById('inputAmount').value, 10);
-  if (!amt || amt <= 0) { alert('金額を入力してください'); return; }
-  const memo = document.getElementById('inputMemo').value.trim();
-  entries.push({
-    id: Date.now() + Math.random(),
-    type: state.inputType,
-    date: state.inputDate,
-    amount: Math.abs(amt),
-    memo
-  });
+  const incAmt = parseInt(document.getElementById('incomeAmount').value, 10) || 0;
+  const expAmt = parseInt(document.getElementById('expenseAmount').value, 10) || 0;
+  if (incAmt <= 0 && expAmt <= 0) {
+    alert('収入または支出の金額を入力してください'); return;
+  }
+  const incMemo = document.getElementById('incomeMemo').value.trim();
+  const expMemo = document.getElementById('expenseMemo').value.trim();
+  const baseId = Date.now();
+  if (incAmt > 0) {
+    entries.push({
+      id: baseId + Math.random(),
+      type: 'income', date: state.inputDate,
+      amount: Math.abs(incAmt), memo: incMemo
+    });
+  }
+  if (expAmt > 0) {
+    entries.push({
+      id: baseId + 0.5 + Math.random(),
+      type: 'expense', date: state.inputDate,
+      amount: Math.abs(expAmt), memo: expMemo
+    });
+  }
   saveEntries();
   flashSubmit();
-  document.getElementById('inputAmount').value = '';
-  document.getElementById('inputMemo').value = '';
+  ['incomeAmount','incomeMemo','expenseAmount','expenseMemo'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
 }
 function flashSubmit() {
   const btn = document.getElementById('submitBtn');
