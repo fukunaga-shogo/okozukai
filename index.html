@@ -151,6 +151,7 @@
   .group-list li:last-child { border-bottom: 0; }
   .group-list .item-label { flex: 1; font-size: 16px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .group-list .item-amount { font-size: 16px; font-weight: 700; }
+  .group-list .item-amounts { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 15px; font-weight: 700; }
   .group-list .chev { color: #c8c1b4; font-size: 14px; margin-left: 4px; }
 
   .empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 14px; }
@@ -356,18 +357,19 @@ function submitEntry() {
   }
   const memo = document.getElementById('sharedMemo').value.trim();
   const baseId = Date.now();
+  const pairId = (incAmt > 0 && expAmt > 0) ? 'p_' + baseId : null;
   if (incAmt > 0) {
     entries.push({
       id: baseId + Math.random(),
       type: 'income', date: state.inputDate,
-      amount: Math.abs(incAmt), memo
+      amount: Math.abs(incAmt), memo, pairId
     });
   }
   if (expAmt > 0) {
     entries.push({
       id: baseId + 0.5 + Math.random(),
       type: 'expense', date: state.inputDate,
-      amount: Math.abs(expAmt), memo
+      amount: Math.abs(expAmt), memo, pairId
     });
   }
   saveEntries();
@@ -418,6 +420,7 @@ function renderMonth() {
     for (const d of sortedDates) {
       const items = byDate[d].slice().sort((a,b) => b.id - a.id);
       const dayTotal = items.reduce((s,e) => s + entryDelta(e), 0);
+      const rows = state.monthFilter === 'both' ? groupPairs(items) : items.map(e => ({ single: e }));
       html += `
         <div class="group">
           <div class="group-header">
@@ -425,13 +428,7 @@ function renderMonth() {
             <div class="group-total"><span>合計</span><span class="amt ${dayTotal>=0?'pos':'neg'}">${fmtSigned(dayTotal)}</span></div>
           </div>
           <ul class="group-list">
-            ${items.map(e => `
-              <li data-id="${e.id}">
-                <span class="item-label">${escapeHtml(e.memo || '(メモなし)')}</span>
-                <span class="item-amount ${e.type==='income'?'pos':'neg'}">${e.type==='income'?'':'-'}${fmtNum(e.amount)}</span>
-                <span class="chev">›</span>
-              </li>
-            `).join('')}
+            ${rows.map(r => renderRow(r)).join('')}
           </ul>
         </div>
       `;
@@ -460,6 +457,47 @@ function segBtn(t, label, current) {
 function filterByType(arr, f) {
   if (f === 'both') return arr;
   return arr.filter(e => e.type === f);
+}
+
+function groupPairs(items) {
+  const rows = [];
+  const seen = new Set();
+  for (const e of items) {
+    if (seen.has(e.id)) continue;
+    if (e.pairId) {
+      const partner = items.find(o => o.id !== e.id && o.pairId === e.pairId);
+      if (partner) {
+        const inc = e.type === 'income' ? e : partner;
+        const exp = e.type === 'expense' ? e : partner;
+        rows.push({ pair: { inc, exp } });
+        seen.add(e.id); seen.add(partner.id);
+        continue;
+      }
+    }
+    rows.push({ single: e });
+    seen.add(e.id);
+  }
+  return rows;
+}
+
+function renderRow(r) {
+  if (r.single) {
+    const e = r.single;
+    return `<li data-id="${e.id}">
+      <span class="item-label">${escapeHtml(e.memo || '(メモなし)')}</span>
+      <span class="item-amount ${e.type==='income'?'pos':'neg'}">${e.type==='income'?'':'-'}${fmtNum(e.amount)}</span>
+      <span class="chev">›</span>
+    </li>`;
+  }
+  const { inc, exp } = r.pair;
+  return `<li data-pair="${inc.id}|${exp.id}">
+    <span class="item-label">${escapeHtml(inc.memo || '(メモなし)')}</span>
+    <span class="item-amounts">
+      <span class="pos">+${fmtNum(inc.amount)}</span>
+      <span class="neg">-${fmtNum(exp.amount)}</span>
+    </span>
+    <span class="chev">›</span>
+  </li>`;
 }
 
 /* ---------- All Period ---------- */
@@ -659,6 +697,12 @@ function bindEntryClicks() {
   document.querySelectorAll('.group-list li[data-id]').forEach(li => {
     li.addEventListener('click', () => openEditModal(li.dataset.id));
   });
+  document.querySelectorAll('.group-list li[data-pair]').forEach(li => {
+    li.addEventListener('click', () => {
+      const [incId, expId] = li.dataset.pair.split('|');
+      openPairEditModal(incId, expId);
+    });
+  });
 }
 function openEditModal(id) {
   const e = entries.find(en => String(en.id) === String(id));
@@ -711,6 +755,71 @@ function openEditModal(id) {
   document.getElementById('editDelete').addEventListener('click', () => {
     if (!confirm('この記録を削除しますか？')) return;
     entries = entries.filter(en => en.id !== e.id);
+    saveEntries(); close(); render();
+  });
+}
+
+function openPairEditModal(incId, expId) {
+  const inc = entries.find(en => String(en.id) === String(incId));
+  const exp = entries.find(en => String(en.id) === String(expId));
+  if (!inc || !exp) return;
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = `
+    <div class="modal-bg" id="modalBg">
+      <div class="modal">
+        <h3>記録を編集（収入・支出）</h3>
+        <div class="input-block">
+          <label style="font-size:12px;color:var(--muted)">日付</label>
+          <input type="date" id="pairDate" value="${inc.date}">
+        </div>
+        <div class="input-block">
+          <label style="font-size:12px;color:var(--income);font-weight:700">収入額（0で削除）</label>
+          <input type="number" inputmode="numeric" id="pairIncAmt" value="${inc.amount}" min="0">
+        </div>
+        <div class="input-block">
+          <label style="font-size:12px;color:var(--expense);font-weight:700">支出額（0で削除）</label>
+          <input type="number" inputmode="numeric" id="pairExpAmt" value="${exp.amount}" min="0">
+        </div>
+        <div class="input-block">
+          <label style="font-size:12px;color:var(--muted)">内容</label>
+          <input type="text" id="pairMemo" value="${escapeHtml(inc.memo || '')}" placeholder="内容">
+        </div>
+        <div class="modal-actions">
+          <button class="delete" id="pairDelete">両方削除</button>
+          <button class="cancel" id="pairCancel">キャンセル</button>
+          <button class="save" id="pairSave">保存</button>
+        </div>
+      </div>
+    </div>
+  `;
+  const close = () => root.innerHTML = '';
+  document.getElementById('modalBg').addEventListener('click', ev => { if (ev.target.id === 'modalBg') close(); });
+  document.getElementById('pairCancel').addEventListener('click', close);
+  document.getElementById('pairSave').addEventListener('click', () => {
+    const d = document.getElementById('pairDate').value;
+    const incAmt = parseInt(document.getElementById('pairIncAmt').value, 10) || 0;
+    const expAmt = parseInt(document.getElementById('pairExpAmt').value, 10) || 0;
+    const memo = document.getElementById('pairMemo').value.trim();
+    if (incAmt <= 0 && expAmt <= 0) {
+      if (!confirm('両方0です。両方削除しますか？')) return;
+      entries = entries.filter(en => en.id !== inc.id && en.id !== exp.id);
+    } else {
+      if (incAmt > 0) {
+        inc.date = d; inc.amount = incAmt; inc.memo = memo;
+      } else {
+        entries = entries.filter(en => en.id !== inc.id);
+      }
+      if (expAmt > 0) {
+        exp.date = d; exp.amount = expAmt; exp.memo = memo;
+      } else {
+        entries = entries.filter(en => en.id !== exp.id);
+      }
+    }
+    saveEntries(); close(); render();
+  });
+  document.getElementById('pairDelete').addEventListener('click', () => {
+    if (!confirm('収入と支出の両方を削除しますか？')) return;
+    entries = entries.filter(en => en.id !== inc.id && en.id !== exp.id);
     saveEntries(); close(); render();
   });
 }
