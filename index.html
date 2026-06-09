@@ -187,12 +187,15 @@
   /* Modal */
   .modal-bg {
     position: fixed; inset: 0; background: rgba(0,0,0,0.4);
-    display: flex; align-items: center; justify-content: center;
+    display: flex; align-items: flex-start; justify-content: center;
     z-index: 100; padding: 20px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .modal {
     background: var(--bg); border-radius: 14px; width: 100%; max-width: 360px;
     padding: 20px;
+    margin: auto 0;
   }
   .modal h3 { margin: 0 0 14px; font-size: 17px; }
   .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
