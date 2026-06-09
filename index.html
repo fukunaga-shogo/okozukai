@@ -599,6 +599,7 @@ function renderSettings() {
   `;
   document.getElementById('content').innerHTML = `
     <div class="settings-list">
+      <div class="item" id="reloadBtn">アプリを更新（最新版を取得） <span class="chev">›</span></div>
       <div class="item" id="exportBtn">データをエクスポート <span class="chev">›</span></div>
       <div class="item" id="importBtn">データをインポート <span class="chev">›</span></div>
       <div class="item danger" id="clearBtn">全データを削除 <span class="chev">›</span></div>
@@ -609,6 +610,9 @@ function renderSettings() {
     </div>
     <input type="file" id="importFile" accept="application/json" hidden>
   `;
+  document.getElementById('reloadBtn').addEventListener('click', () => {
+    location.replace(location.pathname + '?v=' + Date.now());
+  });
   document.getElementById('exportBtn').addEventListener('click', exportData);
   document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
   document.getElementById('importFile').addEventListener('change', importData);
