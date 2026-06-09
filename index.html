@@ -734,23 +734,46 @@ function bindEntryClicks() {
 function openEditModal(id) {
   const e = entries.find(en => String(en.id) === String(id));
   if (!e) return;
+  openUnifiedEdit({
+    inc: e.type === 'income' ? e : null,
+    exp: e.type === 'expense' ? e : null
+  });
+}
+
+function openPairEditModal(incId, expId) {
+  const inc = entries.find(en => String(en.id) === String(incId));
+  const exp = entries.find(en => String(en.id) === String(expId));
+  if (!inc || !exp) return;
+  openUnifiedEdit({ inc, exp });
+}
+
+function openUnifiedEdit({ inc, exp }) {
+  const ref = inc || exp;
+  const date = ref.date;
+  const memo = ref.memo || '';
+  const incAmt = inc ? inc.amount : '';
+  const expAmt = exp ? exp.amount : '';
+
   const root = document.getElementById('modalRoot');
   root.innerHTML = `
     <div class="modal-bg" id="modalBg">
       <div class="modal">
         <h3>記録を編集</h3>
-        <div class="segment" id="editTypeSeg">
-          <button data-t="income" class="${e.type==='income'?'active':''}">収入</button>
-          <button data-t="expense" class="${e.type==='expense'?'active':''}">支出</button>
+        <div class="input-block">
+          <label style="font-size:12px;color:var(--muted)">日付</label>
+          <input type="date" id="editDate" value="${date}">
         </div>
         <div class="input-block">
-          <input type="date" id="editDate" value="${e.date}">
+          <label style="font-size:12px;color:var(--income);font-weight:700">収入額（0または空で削除）</label>
+          <input type="number" inputmode="numeric" id="editIncAmt" value="${incAmt}" min="0" placeholder="収入額">
         </div>
         <div class="input-block">
-          <input type="number" inputmode="numeric" id="editAmount" value="${e.amount}" min="1">
+          <label style="font-size:12px;color:var(--expense);font-weight:700">支出額（0または空で削除）</label>
+          <input type="number" inputmode="numeric" id="editExpAmt" value="${expAmt}" min="0" placeholder="支出額">
         </div>
         <div class="input-block">
-          <input type="text" id="editMemo" value="${escapeHtml(e.memo || '')}" placeholder="内容">
+          <label style="font-size:12px;color:var(--muted)">内容</label>
+          <input type="text" id="editMemo" value="${escapeHtml(memo)}" placeholder="内容">
         </div>
         <div class="modal-actions">
           <button class="delete" id="editDelete">削除</button>
@@ -760,93 +783,67 @@ function openEditModal(id) {
       </div>
     </div>
   `;
-  let newType = e.type;
-  document.querySelectorAll('#editTypeSeg button').forEach(b => {
-    b.addEventListener('click', () => {
-      document.querySelectorAll('#editTypeSeg button').forEach(x => x.classList.remove('active'));
-      b.classList.add('active'); newType = b.dataset.t;
-    });
-  });
   const close = () => root.innerHTML = '';
   document.getElementById('modalBg').addEventListener('click', ev => { if (ev.target.id === 'modalBg') close(); });
   document.getElementById('editCancel').addEventListener('click', close);
-  document.getElementById('editSave').addEventListener('click', () => {
-    const amt = parseInt(document.getElementById('editAmount').value, 10);
-    if (!amt || amt <= 0) { alert('金額を入力してください'); return; }
-    e.type = newType;
-    e.date = document.getElementById('editDate').value;
-    e.amount = Math.abs(amt);
-    e.memo = document.getElementById('editMemo').value.trim();
-    saveEntries(); close(); render();
-  });
-  document.getElementById('editDelete').addEventListener('click', () => {
-    if (!confirm('この記録を削除しますか？')) return;
-    entries = entries.filter(en => en.id !== e.id);
-    saveEntries(); close(); render();
-  });
-}
 
-function openPairEditModal(incId, expId) {
-  const inc = entries.find(en => String(en.id) === String(incId));
-  const exp = entries.find(en => String(en.id) === String(expId));
-  if (!inc || !exp) return;
-  const root = document.getElementById('modalRoot');
-  root.innerHTML = `
-    <div class="modal-bg" id="modalBg">
-      <div class="modal">
-        <h3>記録を編集（収入・支出）</h3>
-        <div class="input-block">
-          <label style="font-size:12px;color:var(--muted)">日付</label>
-          <input type="date" id="pairDate" value="${inc.date}">
-        </div>
-        <div class="input-block">
-          <label style="font-size:12px;color:var(--income);font-weight:700">収入額（0で削除）</label>
-          <input type="number" inputmode="numeric" id="pairIncAmt" value="${inc.amount}" min="0">
-        </div>
-        <div class="input-block">
-          <label style="font-size:12px;color:var(--expense);font-weight:700">支出額（0で削除）</label>
-          <input type="number" inputmode="numeric" id="pairExpAmt" value="${exp.amount}" min="0">
-        </div>
-        <div class="input-block">
-          <label style="font-size:12px;color:var(--muted)">内容</label>
-          <input type="text" id="pairMemo" value="${escapeHtml(inc.memo || '')}" placeholder="内容">
-        </div>
-        <div class="modal-actions">
-          <button class="delete" id="pairDelete">両方削除</button>
-          <button class="cancel" id="pairCancel">キャンセル</button>
-          <button class="save" id="pairSave">保存</button>
-        </div>
-      </div>
-    </div>
-  `;
-  const close = () => root.innerHTML = '';
-  document.getElementById('modalBg').addEventListener('click', ev => { if (ev.target.id === 'modalBg') close(); });
-  document.getElementById('pairCancel').addEventListener('click', close);
-  document.getElementById('pairSave').addEventListener('click', () => {
-    const d = document.getElementById('pairDate').value;
-    const incAmt = parseInt(document.getElementById('pairIncAmt').value, 10) || 0;
-    const expAmt = parseInt(document.getElementById('pairExpAmt').value, 10) || 0;
-    const memo = document.getElementById('pairMemo').value.trim();
-    if (incAmt <= 0 && expAmt <= 0) {
-      if (!confirm('両方0です。両方削除しますか？')) return;
-      entries = entries.filter(en => en.id !== inc.id && en.id !== exp.id);
-    } else {
-      if (incAmt > 0) {
-        inc.date = d; inc.amount = incAmt; inc.memo = memo;
-      } else {
-        entries = entries.filter(en => en.id !== inc.id);
-      }
-      if (expAmt > 0) {
-        exp.date = d; exp.amount = expAmt; exp.memo = memo;
-      } else {
-        entries = entries.filter(en => en.id !== exp.id);
-      }
+  document.getElementById('editSave').addEventListener('click', () => {
+    const d = document.getElementById('editDate').value;
+    const newIncAmt = parseInt(document.getElementById('editIncAmt').value, 10) || 0;
+    const newExpAmt = parseInt(document.getElementById('editExpAmt').value, 10) || 0;
+    const newMemo = document.getElementById('editMemo').value.trim();
+
+    if (newIncAmt <= 0 && newExpAmt <= 0) {
+      if (!confirm('金額が両方0です。記録を削除しますか？')) return;
+      const ids = [inc, exp].filter(Boolean).map(x => x.id);
+      entries = entries.filter(en => !ids.includes(en.id));
+      saveEntries(); close(); render(); return;
     }
+
+    // Determine if we need a pairId (both income and expense will exist)
+    let pairId = null;
+    if (newIncAmt > 0 && newExpAmt > 0) {
+      pairId = (inc && inc.pairId) || (exp && exp.pairId) || ('p_' + Date.now());
+    }
+
+    // Income side
+    if (newIncAmt > 0) {
+      if (inc) {
+        inc.date = d; inc.amount = newIncAmt; inc.memo = newMemo;
+        inc.pairId = pairId;
+      } else {
+        entries.push({
+          id: Date.now() + Math.random(),
+          type: 'income', date: d, amount: newIncAmt, memo: newMemo, pairId
+        });
+      }
+    } else if (inc) {
+      entries = entries.filter(en => en.id !== inc.id);
+    }
+
+    // Expense side
+    if (newExpAmt > 0) {
+      if (exp) {
+        exp.date = d; exp.amount = newExpAmt; exp.memo = newMemo;
+        exp.pairId = pairId;
+      } else {
+        entries.push({
+          id: Date.now() + 0.5 + Math.random(),
+          type: 'expense', date: d, amount: newExpAmt, memo: newMemo, pairId
+        });
+      }
+    } else if (exp) {
+      entries = entries.filter(en => en.id !== exp.id);
+    }
+
     saveEntries(); close(); render();
   });
-  document.getElementById('pairDelete').addEventListener('click', () => {
-    if (!confirm('収入と支出の両方を削除しますか？')) return;
-    entries = entries.filter(en => en.id !== inc.id && en.id !== exp.id);
+
+  document.getElementById('editDelete').addEventListener('click', () => {
+    const both = inc && exp;
+    if (!confirm(both ? '収入と支出の両方を削除しますか？' : 'この記録を削除しますか？')) return;
+    const ids = [inc, exp].filter(Boolean).map(x => x.id);
+    entries = entries.filter(en => !ids.includes(en.id));
     saveEntries(); close(); render();
   });
 }
